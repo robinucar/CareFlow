@@ -27,7 +27,7 @@ def health_check():
     }
 
 
-@app.post("/signup", response_model=PatientResponse)
+@app.post("/signup", response_model=PatientResponse, status_code=201)
 def patient_signup(payload: PatientSignupRequest):
     return PatientResponse(
         id="pat_001",

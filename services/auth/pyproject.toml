@@ -1,0 +1,21 @@
+[project]
+name = "careflow-auth"
+version = "0.1.0"
+description = "CareFlow Auth Service"
+requires-python = ">=3.13"
+dependencies = [
+    "email-validator>=2.3.0",
+    "fastapi>=0.135.1",
+    "uvicorn>=0.42.0",
+]
+
+[tool.uv]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

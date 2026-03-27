@@ -96,7 +96,7 @@ def test_signup_rejects_common_password():
 
 
 def test_signup_rejects_duplicate_email():
-    email = f"patient-{uuid4().hex}@example.com"
+    email = f"Patient-{uuid4().hex}@Example.com"
     password = "verysecurepass1"
 
     first_response = client.post(
@@ -110,13 +110,14 @@ def test_signup_rejects_duplicate_email():
     second_response = client.post(
         "/signup",
         json={
-            "email": email,
+            "email": email.casefold(),
             "password": password,
             "confirm_password": password,
         },
     )
 
     assert first_response.status_code == 201
+    assert first_response.json()["email"] == email.casefold()
     assert second_response.status_code == 409
     assert second_response.json() == {
         "detail": "Account with this email already exists",

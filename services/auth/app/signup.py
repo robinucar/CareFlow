@@ -8,9 +8,10 @@ from app.security import hash_password
 
 def create_account(db: Session, payload: AccountSignupRequest) -> UserAccount:
     validate_password_policy(payload.password)
+    normalized_email = str(payload.email).strip().casefold()
 
     account = UserAccount(
-        email=payload.email,
+        email=normalized_email,
         password_hash=hash_password(payload.password),
         role="patient",
         status="active",

@@ -1,6 +1,11 @@
-from fastapi import FastAPI
-from app.schemas import PatientResponse, PatientSignupRequest
-from app.signup import build_patient_signup_response
+from fastapi import Depends, FastAPI, HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.db import get_db
+from app.password_policy import PasswordPolicyError
+from app.schemas import AccountResponse, AccountSignupRequest
+from app.signup import build_account_signup_response, create_account
 
 app = FastAPI(title="CareFlow Auth Service")
 
@@ -13,6 +18,22 @@ def health_check():
     }
 
 
-@app.post("/signup", response_model=PatientResponse, status_code=201)
-def patient_signup(payload: PatientSignupRequest):
-    return build_patient_signup_response(payload)
+@app.post("/signup", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)
+def account_signup(
+    payload: AccountSignupRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        account = create_account(db, payload)
+    except PasswordPolicyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Account with this email already exists",
+        )
+    return build_account_signup_response(account)

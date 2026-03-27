@@ -1,16 +1,19 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
-class PatientSignupRequest(BaseModel):
+class AccountSignupRequest(BaseModel):
     email: EmailStr
-    password: str
-    first_name: str
-    last_name: str
+    password: str = Field(min_length=15, max_length=64)
+    confirm_password: str = Field(min_length=15, max_length=64)
+
+    @model_validator(mode="after")
+    def passwords_match(self) -> "AccountSignupRequest":
+        if self.password != self.confirm_password:
+            raise ValueError("Passwords do not match")
+        return self
 
 
-class PatientResponse(BaseModel):
+class AccountResponse(BaseModel):
     id: str
     email: EmailStr
-    first_name: str
-    last_name: str
     role: str

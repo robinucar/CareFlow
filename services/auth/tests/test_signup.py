@@ -1,19 +1,18 @@
-from app.schemas import PatientSignupRequest
-from app.signup import build_patient_signup_response
+from app.models import UserAccount
+from app.signup import build_account_signup_response
 
 
-def test_build_patient_signup_response_returns_patient_response():
-    payload = PatientSignupRequest(
+def test_build_account_signup_response_returns_account_response():
+    account = UserAccount(
+        id=1,
         email="patient@example.com",
-        password="secret123",
-        first_name="John",
-        last_name="Doe",
+        password_hash="hashed-password",
+        role="patient",
+        status="active",
     )
 
-    response = build_patient_signup_response(payload)
+    response = build_account_signup_response(account)
 
-    assert response.id == "pat_001"
+    assert response.id == "1"
     assert response.email == "patient@example.com"
-    assert response.first_name == "John"
-    assert response.last_name == "Doe"
     assert response.role == "patient"

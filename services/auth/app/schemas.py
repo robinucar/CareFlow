@@ -13,7 +13,13 @@ class AccountSignupRequest(BaseModel):
         return self
 
 
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
 class AccountResponse(BaseModel):
     id: str
     email: EmailStr
     role: str
+    status: str

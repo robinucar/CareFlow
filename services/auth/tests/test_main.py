@@ -1,4 +1,5 @@
 import os
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -23,22 +24,26 @@ def test_health_check_returns_ok():
     }
 
 
-def test_signup_returns_created_account_response():
+def test_signup_returns_pending_verification_account_response():
     email = f"patient-{uuid4().hex}@example.com"
     password = "verysecurepass1"
-    response = client.post(
-        "/signup",
-        json={
-            "email": email,
-            "password": password,
-            "confirm_password": password,
-        },
-    )
+
+    with patch("app.verification.generate_verification_code", return_value="123456"):
+        response = client.post(
+            "/signup",
+            json={
+                "email": email,
+                "password": password,
+                "confirm_password": password,
+            },
+        )
+
     assert response.status_code == 201
     response_data = response.json()
     assert response_data["id"].isdigit()
     assert response_data["email"] == email
     assert response_data["role"] == "patient"
+    assert response_data["status"] == "pending_verification"
 
 
 def test_signup_rejects_invalid_email():
@@ -99,14 +104,16 @@ def test_signup_rejects_duplicate_email():
     email = f"Patient-{uuid4().hex}@Example.com"
     password = "verysecurepass1"
 
-    first_response = client.post(
-        "/signup",
-        json={
-            "email": email,
-            "password": password,
-            "confirm_password": password,
-        },
-    )
+    with patch("app.verification.generate_verification_code", return_value="123456"):
+        first_response = client.post(
+            "/signup",
+            json={
+                "email": email,
+                "password": password,
+                "confirm_password": password,
+            },
+        )
+
     second_response = client.post(
         "/signup",
         json={
@@ -121,4 +128,63 @@ def test_signup_rejects_duplicate_email():
     assert second_response.status_code == 409
     assert second_response.json() == {
         "detail": "Account with this email already exists",
+    }
+
+
+def test_verify_email_activates_pending_account():
+    email = f"patient-{uuid4().hex}@example.com"
+    password = "verysecurepass1"
+
+    with patch("app.verification.generate_verification_code", return_value="123456"):
+        signup_response = client.post(
+            "/signup",
+            json={
+                "email": email,
+                "password": password,
+                "confirm_password": password,
+            },
+        )
+
+    assert signup_response.status_code == 201
+
+    verify_response = client.post(
+        "/verify-email",
+        json={
+            "email": email,
+            "code": "123456",
+        },
+    )
+
+    assert verify_response.status_code == 200
+    assert verify_response.json()["email"] == email
+    assert verify_response.json()["status"] == "active"
+
+
+def test_verify_email_rejects_invalid_code():
+    email = f"patient-{uuid4().hex}@example.com"
+    password = "verysecurepass1"
+
+    with patch("app.verification.generate_verification_code", return_value="123456"):
+        signup_response = client.post(
+            "/signup",
+            json={
+                "email": email,
+                "password": password,
+                "confirm_password": password,
+            },
+        )
+
+    assert signup_response.status_code == 201
+
+    verify_response = client.post(
+        "/verify-email",
+        json={
+            "email": email,
+            "code": "999999",
+        },
+    )
+
+    assert verify_response.status_code == 400
+    assert verify_response.json() == {
+        "detail": "Verification code is invalid or expired",
     }

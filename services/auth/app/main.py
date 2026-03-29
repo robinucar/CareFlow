@@ -4,8 +4,14 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.password_policy import PasswordPolicyError
-from app.schemas import AccountResponse, AccountSignupRequest
-from app.signup import build_account_signup_response, create_account
+from app.schemas import AccountResponse, AccountSignupRequest, EmailVerificationRequest
+from app.signup import build_account_response, create_account
+from app.verification import (
+    AccountAlreadyVerifiedError,
+    InvalidVerificationCodeError,
+    VerificationLockedError,
+    verify_account_email,
+)
 
 app = FastAPI(title="CareFlow Auth Service")
 
@@ -18,7 +24,9 @@ def health_check():
     }
 
 
-@app.post("/signup", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/signup", response_model=AccountResponse, status_code=status.HTTP_201_CREATED
+)
 def account_signup(
     payload: AccountSignupRequest,
     db: Session = Depends(get_db),
@@ -36,4 +44,34 @@ def account_signup(
             status_code=status.HTTP_409_CONFLICT,
             detail="Account with this email already exists",
         )
-    return build_account_signup_response(account)
+    return build_account_response(account)
+
+
+@app.post("/verify-email", response_model=AccountResponse)
+def verify_email(
+    payload: EmailVerificationRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        account = verify_account_email(
+            db=db,
+            email=str(payload.email),
+            code=payload.code,
+        )
+    except AccountAlreadyVerifiedError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Account is already verified",
+        )
+    except VerificationLockedError:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed verification attempts. Try again later.",
+        )
+    except InvalidVerificationCodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code is invalid or expired",
+        )
+
+    return build_account_response(account)

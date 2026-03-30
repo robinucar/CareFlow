@@ -18,8 +18,16 @@ class EmailVerificationRequest(BaseModel):
     code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
+class EmailVerificationResendRequest(BaseModel):
+    email: EmailStr
+
+
 class AccountResponse(BaseModel):
     id: str
     email: EmailStr
     role: str
     status: str
+
+
+class AccountVerificationDeliveryResponse(AccountResponse):
+    verification_code: str

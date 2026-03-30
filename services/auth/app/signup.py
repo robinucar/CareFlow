@@ -5,12 +5,19 @@ from sqlalchemy.orm import Session
 from app.identifiers import normalize_email
 from app.models import EmailVerificationSecurityState, UserAccount
 from app.password_policy import validate_password_policy
-from app.schemas import AccountResponse, AccountSignupRequest
+from app.schemas import (
+    AccountResponse,
+    AccountSignupRequest,
+    AccountVerificationDeliveryResponse,
+)
 from app.security import hash_password
 from app.verification import issue_email_verification_challenge
 
 
-def create_account(db: Session, payload: AccountSignupRequest) -> UserAccount:
+def create_account(
+    db: Session,
+    payload: AccountSignupRequest,
+) -> tuple[UserAccount, str]:
     validate_password_policy(payload.password)
     now = datetime.now(timezone.utc)
     normalized_email = normalize_email(str(payload.email))
@@ -29,7 +36,7 @@ def create_account(db: Session, payload: AccountSignupRequest) -> UserAccount:
         last_sent_at=now,
     )
     db.add(security_state)
-    issue_email_verification_challenge(
+    verification_code = issue_email_verification_challenge(
         db=db,
         account=account,
         security_state=security_state,
@@ -38,7 +45,7 @@ def create_account(db: Session, payload: AccountSignupRequest) -> UserAccount:
 
     db.commit()
     db.refresh(account)
-    return account
+    return account, verification_code
 
 
 def build_account_response(account: UserAccount) -> AccountResponse:
@@ -47,4 +54,17 @@ def build_account_response(account: UserAccount) -> AccountResponse:
         email=account.email,
         role=account.role,
         status=account.status,
+    )
+
+
+def build_account_verification_delivery_response(
+    account: UserAccount,
+    verification_code: str,
+) -> AccountVerificationDeliveryResponse:
+    return AccountVerificationDeliveryResponse(
+        id=str(account.id),
+        email=account.email,
+        role=account.role,
+        status=account.status,
+        verification_code=verification_code,
     )
